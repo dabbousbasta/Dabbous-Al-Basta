@@ -317,20 +317,13 @@
                 </div>
             </div>
 
-            <div class="search-actions">
-                <button class="btn-primary" onclick="search()">
-                    🔍 بحث
-                </button>
-                <button class="btn-secondary" onclick="clearSearch()">
-                    🧹 مسح الحقول
-                </button>
-            </div>
+            <!-- لا زر بحث ولا زر مسح -->
         </section>
 
         <section class="card">
             <div class="card-title">📋 النتائج</div>
             <div class="table-wrapper">
-                <table id="results" style="display:none;">
+                <table id="results">
                     <thead>
                     <tr>
                         <th>المستودع</th>
@@ -395,8 +388,7 @@
         const statusEl = document.getElementById('loadStatus');
         try {
             statusEl.textContent = 'جاري تحميل «جرد المواد.xlsx» من السيرفر...';
-         const response = await fetch('جرد المواد.xlsx?v=' + Date.now());
-
+            const response = await fetch('جرد المواد.xlsx?v=' + Date.now());
 
             if (!response.ok) {
                 statusEl.textContent = 'تعذر تحميل الملف «جرد المواد.xlsx». تأكد أنه مرفوع في نفس المستودع مع index.html.';
@@ -408,24 +400,27 @@
             const allRows = XLSX.utils.sheet_to_json(sheet, {header:1});
             data = allRows.slice(3); // من الصف الرابع
             statusEl.textContent = '✅ تم تحميل ' + data.length + ' صنف من الملف.';
+
+            // عرض كل النتائج أول ما تنتهي التحميل
+            search();
+
+            // ربط الأحداث: كل ما تكتب في أي حقل ينعاد الفلترة
+            document.getElementById("search1").addEventListener("input", search);
+            document.getElementById("search2").addEventListener("input", search);
+            document.getElementById("search3").addEventListener("input", search);
+            document.getElementById("warehouse").addEventListener("input", search);
+
         } catch (e) {
             console.error(e);
             statusEl.textContent = 'حدث خطأ أثناء قراءة الملف. راجع الكونسول لمزيد من التفاصيل.';
         }
     }
 
-    function clearSearch() {
-        document.getElementById('search1').value = '';
-        document.getElementById('search2').value = '';
-        document.getElementById('search3').value = '';
-        document.getElementById('warehouse').value = '';
-        document.getElementById('resultsBody').innerHTML = '';
-        document.getElementById('results').style.display = 'none';
-    }
-
     function search() {
         if (data.length === 0) {
-            alert('❗ لم يتم تحميل البيانات بعد. تأكد أن ملف «جرد المواد.xlsx» موجود وتم تحميل الصفحة كاملة.');
+            document.getElementById('loadStatus').textContent = '❗ لم يتم تحميل البيانات بعد. تأكد أن ملف «جرد المواد.xlsx» موجود.';
+            document.getElementById('resultsBody').innerHTML = '<tr><td colspan="4" class="no-results">لم يتم تحميل البيانات</td></tr>';
+            document.getElementById('results').style.display = 'table';
             return;
         }
 
@@ -435,31 +430,31 @@
         const wh = document.getElementById('warehouse').value.trim().toLowerCase();
 
         let results;
-if (!s1 && !s2 && !s3 && !wh) {
-    // لا يوجد أي إدخال → كل النتائج لكن بدون صفوف مستودع فارغ
-    results = data.filter(row => {
-        const warehouse = ((row[1] || '') + '').trim();
-        return warehouse !== '';
-    });
-} else {
-    results = data.filter(row => {
-        const warehouseRaw = ((row[1] || '') + '');
-        const warehouse = warehouseRaw.toLowerCase().trim(); // B
-        const itemName  = ((row[2] || '') + '').toLowerCase(); // C
+        if (!s1 && !s2 && !s3 && !wh) {
+            // بدون أي فلتر → كل الأصناف ما عدا المستودع الفارغ
+            results = data.filter(row => {
+                const warehouse = ((row[1] || '') + '').trim();
+                return warehouse !== '';
+            });
+        } else {
+            results = data.filter(row => {
+                const warehouseRaw = ((row[1] || '') + '');
+                const warehouse = warehouseRaw.toLowerCase().trim(); // B
+                const itemName     = ((row[2] || '') + '').toLowerCase(); // C
 
-        // استبعاد الصفوف ذات المستودع الفارغ
-        if (!warehouseRaw.trim()) {
-            return false;
+                // استبعاد الصفوف ذات المستودع الفارغ
+                if (!warehouseRaw.trim()) {
+                    return false;
+                }
+
+                const match1 = !s1 || itemName.includes(s1);
+                const match2 = !s2 || itemName.includes(s2);
+                const match3 = !s3 || itemName.includes(s3);
+                const matchWh = !wh || warehouse.includes(wh);
+
+                return match1 && match2 && match3 && matchWh;
+            });
         }
-
-        const match1 = !s1 || itemName.includes(s1);
-        const match2 = !s2 || itemName.includes(s2);
-        const match3 = !s3 || itemName.includes(s3);
-        const matchWh = !wh || warehouse.includes(wh);
-
-        return match1 && match2 && match3 && matchWh;
-    });
-}
 
         results.sort((a, b) => {
             const nameA = (a[2] || '').toString();
@@ -496,9 +491,11 @@ if (!s1 && !s2 && !s3 && !wh) {
             });
         }
 
+        // الجدول دائمًا مرئي (مفيش display:none)
         document.getElementById('results').style.display = 'table';
     }
 
+    // تحميل البيانات عند فتح الصفحة
     loadExcel();
 </script>
 </body>
