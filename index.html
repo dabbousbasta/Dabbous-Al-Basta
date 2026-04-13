@@ -120,7 +120,7 @@
 
         .search-grid {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 8px;
         }
 
@@ -239,7 +239,7 @@
             }
 
             .search-grid {
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: 1fr;
             }
 
             table {
@@ -249,20 +249,6 @@
 
             th, td {
                 padding: 5px 3px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .search-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .status-pill {
-                display: none;
-            }
-
-            .brand-text-sub {
-                display: none;
             }
         }
     </style>
@@ -300,16 +286,8 @@
 
             <div class="search-grid">
                 <div class="field-group">
-                    <label for="search1">كلمة بحث 1</label>
-                    <input type="text" id="search1" placeholder="مثال: قسطل">
-                </div>
-                <div class="field-group">
-                    <label for="search2">كلمة بحث 2 (اختياري)</label>
-                    <input type="text" id="search2" placeholder="مثال: 25">
-                </div>
-                <div class="field-group">
-                    <label for="search3">كلمة بحث 3 (اختياري)</label>
-                    <input type="text" id="search3" placeholder="مثال: اخضر">
+                    <label for="searchAll">كلمات بحث</label>
+                    <input type="text" id="searchAll" placeholder="اكتب كلمات مفصولة بمسافة مثل: قسطل 25 اخضر">
                 </div>
                 <div class="field-group">
                     <label for="warehouse">جزء من اسم المستودع (اختياري)</label>
@@ -405,9 +383,7 @@
             search();
 
             // ربط الأحداث: كل ما تكتب في أي حقل ينعاد الفلترة
-            document.getElementById("search1").addEventListener("input", search);
-            document.getElementById("search2").addEventListener("input", search);
-            document.getElementById("search3").addEventListener("input", search);
+            document.getElementById("searchAll").addEventListener("input", search);
             document.getElementById("warehouse").addEventListener("input", search);
 
         } catch (e) {
@@ -424,13 +400,14 @@
             return;
         }
 
-        const s1 = document.getElementById('search1').value.trim().toLowerCase();
-        const s2 = document.getElementById('search2').value.trim().toLowerCase();
-        const s3 = document.getElementById('search3').value.trim().toLowerCase();
+        const searchStr = document.getElementById('searchAll').value.trim().toLowerCase();
         const wh = document.getElementById('warehouse').value.trim().toLowerCase();
 
+        // تقسيم الكلمات بالمسافة وتصفية الفراغات الزائدة
+        const words = searchStr.split(/\s+/).filter(w => w);
+
         let results;
-        if (!s1 && !s2 && !s3 && !wh) {
+        if (words.length === 0 && !wh) {
             // بدون أي فلتر → كل الأصناف ما عدا المستودع الفارغ
             results = data.filter(row => {
                 const warehouse = ((row[1] || '') + '').trim();
@@ -447,12 +424,11 @@
                     return false;
                 }
 
-                const match1 = !s1 || itemName.includes(s1);
-                const match2 = !s2 || itemName.includes(s2);
-                const match3 = !s3 || itemName.includes(s3);
+                // المطابقة: كل كلمة منفصلة يجب أن توجد في اسم المادة
+                const allWordsMatch = words.length === 0 || words.every(word => itemName.includes(word));
                 const matchWh = !wh || warehouse.includes(wh);
 
-                return match1 && match2 && match3 && matchWh;
+                return allWordsMatch && matchWh;
             });
         }
 
