@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8" />
     <title>بحث الأصناف - دبوس البسطة</title>
-    <link rel="shortcut icon" type="image/png" href="logo.png">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -25,72 +24,7 @@
             color: var(--text);
         }
 
-        .app-shell {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        header {
-            background: white;
-            border-bottom: 1px solid #ddd;
-            padding: 10px 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .brand-logo {
-            width: 52px;
-            height: 52px;
-            border-radius: 50%;
-            overflow: hidden;
-            border: 1px solid #ddd;
-            background: white;
-            flex-shrink: 0;
-        }
-
-        .brand-logo img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-
-        .brand-text {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-
-        .brand-text-title {
-            font-weight: 700;
-            font-size: 18px;
-            color: var(--primary);
-        }
-
-        .brand-text-sub {
-            font-size: 12px;
-            color: #666;
-        }
-
-        .status-pill {
-            font-size: 11px;
-            padding: 4px 8px;
-            border-radius: 999px;
-            background: var(--primary-light);
-            color: var(--primary);
-            white-space: nowrap;
-        }
-
         main {
-            flex: 1;
             padding: 12px 16px 24px;
             max-width: 1100px;
             margin: 0 auto;
@@ -215,20 +149,18 @@
             color: #c00;
         }
 
+        #loadStatus {
+            font-size: 12px;
+            font-weight: 600;
+            color: #28a745;
+            padding: 8px 12px;
+            background: #d4edda;
+            border-radius: 6px;
+            border: 1px solid #c3e6cb;
+            margin-top: 8px;
+        }
+
         @media (max-width: 768px) {
-            header {
-                padding: 8px 10px;
-            }
-
-            .brand-logo {
-                width: 42px;
-                height: 42px;
-            }
-
-            .brand-text-title {
-                font-size: 16px;
-            }
-
             main {
                 padding: 10px 8px 18px;
             }
@@ -254,32 +186,10 @@
     </style>
 </head>
 <body>
-<div class="app-shell">
-    <header>
-        <div class="brand">
-            <div class="brand-logo">
-                <img src="logo.png" alt="شعار دبوس البسطة" />
-            </div>
-            <div class="brand-text">
-                <div class="brand-text-title">دبوس البسطة</div>
-                <div class="brand-text-sub">محرك بحث جرد المواد (مستودع - مادة - عدد - سعر مبيع)</div>
-            </div>
-        </div>
-        <div class="status-pill">
-            📦 ملف: «جرد المواد.xlsx»
-        </div>
-    </header>
-
     <main>
-        <section class="card">
-            <div class="card-title">🔁 تحميل بيانات الجرد</div>
-            <div class="note">
-                يتم تحميل الملف <b>جرد المواد.xlsx</b> تلقائياً من نفس المجلد (GitHub Pages). عند تحديث الملف، ارفع النسخة الجديدة بنفس الاسم.
-            </div>
-            <div id="loadStatus" class="note" style="margin-top:6px;color:#c60;">
-                جاري تحميل البيانات...
-            </div>
-        </section>
+        <div id="loadStatus" style="display:none;">
+            ✅ تم تحميل البيانات بنجاح
+        </div>
 
         <section class="card">
             <div class="card-title">🔍 بحث الأصناف</div>
@@ -294,8 +204,6 @@
                     <input type="text" id="warehouse" placeholder="مثال: ديوان أو 3-">
                 </div>
             </div>
-
-            <!-- لا زر بحث ولا زر مسح -->
         </section>
 
         <section class="card">
@@ -315,7 +223,6 @@
             </div>
         </section>
     </main>
-</div>
 
 <script>
     let data = [];
@@ -339,19 +246,13 @@
         if (!name) return '#ffffff';
         const lower = name.toString().toLowerCase();
 
-        // مستودعات فيها "ديوان" أزرق فاتح
         if (lower.includes('ديوان')) {
             return '#d0e7ff';
         }
 
         const colors = [
-            '#e8f5e9', // أخضر فاتح
-            '#fff3e0', // برتقالي فاتح
-            '#f3e5f5', // بنفسجي فاتح
-            '#e0f7fa', // سماوي فاتح
-            '#fbe9e7', // مشمشي فاتح
-            '#ede7f6', // بنفسجي رمادي
-            '#f9fbe7'  // أصفر باهت
+            '#e8f5e9', '#fff3e0', '#f3e5f5', '#e0f7fa',
+            '#fbe9e7', '#ede7f6', '#f9fbe7'
         ];
 
         let hash = 0;
@@ -365,50 +266,52 @@
     async function loadExcel() {
         const statusEl = document.getElementById('loadStatus');
         try {
-            statusEl.textContent = 'جاري تحميل «جرد المواد.xlsx» من السيرفر...';
             const response = await fetch('جرد المواد.xlsx?v=' + Date.now());
 
             if (!response.ok) {
-                statusEl.textContent = 'تعذر تحميل الملف «جرد المواد.xlsx». تأكد أنه مرفوع في نفس المستودع مع index.html.';
+                statusEl.textContent = '❌ خطأ في تحميل الملف. تأكد أنه موجود.';
+                statusEl.style.color = '#dc3545';
+                statusEl.style.background = '#f8d7da';
+                statusEl.style.borderColor = '#f5c6cb';
+                statusEl.style.display = 'block';
                 return;
             }
+
             const arrayBuffer = await response.arrayBuffer();
             const workbook = XLSX.read(new Uint8Array(arrayBuffer), {type: 'array'});
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             const allRows = XLSX.utils.sheet_to_json(sheet, {header:1});
-            data = allRows.slice(3); // من الصف الرابع
-            statusEl.textContent = '✅ تم تحميل ' + data.length + ' صنف من الملف.';
+            data = allRows.slice(3);
+            
+            statusEl.textContent = `✅ تم تحميل ${data.length} صنف من الملف.`;
+            statusEl.style.display = 'block';
 
-            // عرض كل النتائج أول ما تنتهي التحميل
             search();
-
-            // ربط الأحداث: كل ما تكتب في أي حقل ينعاد الفلترة
             document.getElementById("searchAll").addEventListener("input", search);
             document.getElementById("warehouse").addEventListener("input", search);
 
         } catch (e) {
             console.error(e);
-            statusEl.textContent = 'حدث خطأ أثناء قراءة الملف. راجع الكونسول لمزيد من التفاصيل.';
+            statusEl.textContent = '❌ خطأ في قراءة الملف.';
+            statusEl.style.color = '#dc3545';
+            statusEl.style.background = '#f8d7da';
+            statusEl.style.borderColor = '#f5c6cb';
+            statusEl.style.display = 'block';
         }
     }
 
     function search() {
         if (data.length === 0) {
-            document.getElementById('loadStatus').textContent = '❗ لم يتم تحميل البيانات بعد. تأكد أن ملف «جرد المواد.xlsx» موجود.';
             document.getElementById('resultsBody').innerHTML = '<tr><td colspan="4" class="no-results">لم يتم تحميل البيانات</td></tr>';
-            document.getElementById('results').style.display = 'table';
             return;
         }
 
         const searchStr = document.getElementById('searchAll').value.trim().toLowerCase();
         const wh = document.getElementById('warehouse').value.trim().toLowerCase();
-
-        // تقسيم الكلمات بالمسافة وتصفية الفراغات الزائدة
         const words = searchStr.split(/\s+/).filter(w => w);
 
         let results;
         if (words.length === 0 && !wh) {
-            // بدون أي فلتر → كل الأصناف ما عدا المستودع الفارغ
             results = data.filter(row => {
                 const warehouse = ((row[1] || '') + '').trim();
                 return warehouse !== '';
@@ -416,15 +319,13 @@
         } else {
             results = data.filter(row => {
                 const warehouseRaw = ((row[1] || '') + '');
-                const warehouse = warehouseRaw.toLowerCase().trim(); // B
-                const itemName     = ((row[2] || '') + '').toLowerCase(); // C
+                const warehouse = warehouseRaw.toLowerCase().trim();
+                const itemName = ((row[2] || '') + '').toLowerCase();
 
-                // استبعاد الصفوف ذات المستودع الفارغ
                 if (!warehouseRaw.trim()) {
                     return false;
                 }
 
-                // المطابقة: كل كلمة منفصلة يجب أن توجد في اسم المادة
                 const allWordsMatch = words.length === 0 || words.every(word => itemName.includes(word));
                 const matchWh = !wh || warehouse.includes(wh);
 
@@ -466,12 +367,8 @@
                 tbody.appendChild(tr);
             });
         }
-
-        // الجدول دائمًا مرئي (مفيش display:none)
-        document.getElementById('results').style.display = 'table';
     }
 
-    // تحميل البيانات عند فتح الصفحة
     loadExcel();
 </script>
 </body>
