@@ -44,12 +44,9 @@
             font-weight: 600;
             margin-bottom: 8px;
             color: var(--primary);
-        }
-
-        .note {
-            font-size: 11px;
-            color: #777;
-            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
         .search-grid {
@@ -74,6 +71,7 @@
             border-radius: 6px;
             border: 1px solid #ccc;
             font-size: 13px;
+            width: 100%;
         }
 
         input[type="text"]:focus {
@@ -112,9 +110,20 @@
             color: #444;
         }
 
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         .btn-primary:active,
         .btn-secondary:active {
             transform: translateY(1px);
+        }
+
+        .result-count {
+            font-size: 11px;
+            color: #555;
+            font-weight: 500;
         }
 
         .table-wrapper {
@@ -123,16 +132,17 @@
         }
 
         table {
-            width: 100%;
             border-collapse: collapse;
             margin-top: 8px;
-            min-width: 480px;
+            width: auto;
+            min-width: 600px;
         }
 
         th, td {
             border: 1px solid #e0e0e0;
-            padding: 6px 4px;
+            padding: 6px 10px;
             font-size: 12px;
+            white-space: nowrap;
         }
 
         th {
@@ -141,6 +151,20 @@
             position: sticky;
             top: 0;
             z-index: 1;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        th .arrow {
+            font-size: 10px;
+            margin-inline-start: 4px;
+            opacity: 0.7;
+        }
+
+        mark {
+            background: #fff3a0;
+            padding: 0 1px;
+            border-radius: 2px;
         }
 
         .no-results {
@@ -160,6 +184,12 @@
             margin-top: 8px;
         }
 
+        #lastModified {
+            font-size: 11px;
+            color: #777;
+            margin-top: 4px;
+        }
+
         @media (max-width: 768px) {
             main {
                 padding: 10px 8px 18px;
@@ -176,20 +206,19 @@
 
             table {
                 font-size: 11px;
-                min-width: 360px;
+                min-width: 400px;
             }
 
             th, td {
-                padding: 5px 3px;
+                padding: 5px 6px;
             }
         }
     </style>
 </head>
 <body>
     <main>
-        <div id="loadStatus" style="display:none;">
-            ✅ تم تحميل البيانات بنجاح
-        </div>
+        <div id="loadStatus" style="display:none;"></div>
+        <div id="lastModified" style="display:none;"></div>
 
         <section class="card">
             <div class="card-title">🔍 بحث الأصناف</div>
@@ -197,25 +226,33 @@
             <div class="search-grid">
                 <div class="field-group">
                     <label for="searchAll">كلمات بحث</label>
-                    <input type="text" id="searchAll" placeholder="اكتب كلمات مفصولة بمسافة مثل: قسطل 25 اخضر">
+                    <input type="text" id="searchAll" placeholder="اكتب كلمات مفصولة بمسافة مثل: قسطل 25 اخضر" disabled>
                 </div>
                 <div class="field-group">
                     <label for="warehouse">جزء من اسم المستودع (اختياري)</label>
-                    <input type="text" id="warehouse" placeholder="مثال: ديوان أو 3-">
+                    <input type="text" id="warehouse" placeholder="مثال: ديوان أو 3-" disabled>
                 </div>
+            </div>
+
+            <div class="search-actions">
+                <button class="btn-secondary" id="clearBtn" disabled>🧹 مسح البحث</button>
+                <button class="btn-primary" id="exportBtn" disabled>⬇️ تصدير النتائج إلى Excel</button>
             </div>
         </section>
 
         <section class="card">
-            <div class="card-title">📋 النتائج</div>
+            <div class="card-title">
+                <span>📋 النتائج</span>
+                <span class="result-count" id="resultCount"></span>
+            </div>
             <div class="table-wrapper">
                 <table id="results">
                     <thead>
                     <tr>
-                        <th>المستودع</th>
-                        <th>اسم المادة</th>
-                        <th>العدد</th>
-                        <th>سعر المبيع</th>
+                        <th data-col="warehouse">المستودع <span class="arrow"></span></th>
+                        <th data-col="item">اسم المادة <span class="arrow"></span></th>
+                        <th data-col="qty">العدد <span class="arrow"></span></th>
+                        <th data-col="price">سعر المبيع <span class="arrow"></span></th>
                     </tr>
                     </thead>
                     <tbody id="resultsBody"></tbody>
@@ -225,7 +262,19 @@
     </main>
 
 <script>
+    // ⚠️ عدّل هذا الرابط ليشير إلى ملفك على GitHub Pages
+    const DATA_SOURCE_URL = 'جرد المواد.xlsx';
+
     let data = [];
+    let colMap = { warehouse: 1, item: 2, qty: 3, price: 4 };
+    let currentSort = { col: null, dir: 1 };
+    const STORAGE_KEY = 'itemSearch_lastQuery';
+
+    const searchAllEl = document.getElementById('searchAll');
+    const warehouseEl = document.getElementById('warehouse');
+    const clearBtn = document.getElementById('clearBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const resultCountEl = document.getElementById('resultCount');
 
     function formatQty(value) {
         const num = Number(value);
@@ -263,104 +312,185 @@
         return colors[index];
     }
 
-    async function loadExcel() {
+    function setControlsEnabled(enabled) {
+        [searchAllEl, warehouseEl, clearBtn, exportBtn].forEach(el => el.disabled = !enabled);
+    }
+
+    function showStatus(message, isError) {
         const statusEl = document.getElementById('loadStatus');
+        statusEl.textContent = message;
+        statusEl.style.display = 'block';
+        if (isError) {
+            statusEl.style.color = '#dc3545';
+            statusEl.style.background = '#f8d7da';
+            statusEl.style.borderColor = '#f5c6cb';
+        } else {
+            statusEl.style.color = '#28a745';
+            statusEl.style.background = '#d4edda';
+            statusEl.style.borderColor = '#c3e6cb';
+        }
+    }
+
+    async function loadExcel() {
+        setControlsEnabled(false);
+        showStatus('⏳ جاري تحميل البيانات...', false);
+
         try {
-            const response = await fetch('جرد المواد.xlsx?v=' + Date.now());
+            const response = await fetch(DATA_SOURCE_URL + (DATA_SOURCE_URL.includes('?') ? '&' : '?') + 'v=' + Date.now());
 
             if (!response.ok) {
-                statusEl.textContent = '❌ خطأ في تحميل الملف. تأكد أنه موجود.';
-                statusEl.style.color = '#dc3545';
-                statusEl.style.background = '#f8d7da';
-                statusEl.style.borderColor = '#f5c6cb';
-                statusEl.style.display = 'block';
+                showStatus('❌ خطأ في تحميل الملف. تأكد أنه موجود على GitHub ومنشور بشكل صحيح.', true);
                 return;
+            }
+
+            const lastMod = response.headers.get('Last-Modified');
+            const lastModEl = document.getElementById('lastModified');
+            if (lastMod) {
+                lastModEl.textContent = '🕒 آخر تعديل على الملف: ' + new Date(lastMod).toLocaleString('ar');
+                lastModEl.style.display = 'block';
             }
 
             const arrayBuffer = await response.arrayBuffer();
             const workbook = XLSX.read(new Uint8Array(arrayBuffer), {type: 'array'});
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             const allRows = XLSX.utils.sheet_to_json(sheet, {header:1});
-            data = allRows.slice(3);
             
-            statusEl.textContent = `✅ تم تحميل ${data.length} صنف من الملف.`;
-            statusEl.style.display = 'block';
+            // نفترض أن البيانات تبدأ من الصف 4 (مثل الكود القديم)
+            data = allRows.slice(3);
 
+            showStatus(`✅ تم تحميل ${data.length} صنف من الملف.`, false);
+            setControlsEnabled(true);
+
+            restoreLastQuery();
             search();
-            document.getElementById("searchAll").addEventListener("input", search);
-            document.getElementById("warehouse").addEventListener("input", search);
+
+            searchAllEl.addEventListener("input", () => { saveQuery(); search(); });
+            warehouseEl.addEventListener("input", () => { saveQuery(); search(); });
 
         } catch (e) {
             console.error(e);
-            statusEl.textContent = '❌ خطأ في قراءة الملف.';
-            statusEl.style.color = '#dc3545';
-            statusEl.style.background = '#f8d7da';
-            statusEl.style.borderColor = '#f5c6cb';
-            statusEl.style.display = 'block';
+            showStatus('❌ خطأ في قراءة الملف.', true);
         }
     }
 
+    function saveQuery() {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                searchAll: searchAllEl.value,
+                warehouse: warehouseEl.value
+            }));
+        } catch (e) { /* تجاهل */ }
+    }
+
+    function restoreLastQuery() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            if (saved.searchAll) searchAllEl.value = saved.searchAll;
+            if (saved.warehouse) warehouseEl.value = saved.warehouse;
+        } catch (e) { /* تجاهل */ }
+    }
+
+    function clearQuery() {
+        searchAllEl.value = '';
+        warehouseEl.value = '';
+        try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+        search();
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function highlightWords(text, words) {
+        let safe = escapeHtml(text);
+        words.forEach(word => {
+            if (!word) return;
+            const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp('(' + escapedWord + ')', 'gi');
+            safe = safe.replace(regex, '<mark>$1</mark>');
+        });
+        return safe;
+    }
+
+    function getFilteredResults() {
+        if (data.length === 0) return { results: [], words: [] };
+
+        const searchStr = searchAllEl.value.trim().toLowerCase();
+        const wh = warehouseEl.value.trim().toLowerCase();
+        const words = searchStr.split(/\s+/).filter(w => w);
+
+        let results = data.filter(row => {
+            const warehouseRaw = ((row[colMap.warehouse] || '') + '');
+            const warehouse = warehouseRaw.toLowerCase().trim();
+            const itemName = ((row[colMap.item] || '') + '').toLowerCase();
+
+            if (!warehouseRaw.trim()) return false;
+
+            const allWordsMatch = words.length === 0 || words.every(word => itemName.includes(word));
+            const matchWh = !wh || warehouse.includes(wh);
+
+            return allWordsMatch && matchWh;
+        });
+
+        //排序
+        if (currentSort.col) {
+            results.sort((a, b) => {
+                let va = a[colMap[currentSort.col]];
+                let vb = b[colMap[currentSort.col]];
+                
+                if (currentSort.col === 'qty' || currentSort.col === 'price') {
+                    va = Number(va) || 0;
+                    vb = Number(vb) || 0;
+                    return (va - vb) * currentSort.dir;
+                }
+                
+                va = (va || '').toString();
+                vb = (vb || '').toString();
+                return va.localeCompare(vb, 'ar') * currentSort.dir;
+            });
+        } else {
+            results.sort((a, b) => {
+                const nameA = (a[colMap.item] || '').toString();
+                const nameB = (b[colMap.item] || '').toString();
+                return nameA.localeCompare(nameB, 'ar');
+            });
+        }
+
+        return { results, words };
+    }
+
     function search() {
+        const tbody = document.getElementById('resultsBody');
+
         if (data.length === 0) {
-            document.getElementById('resultsBody').innerHTML = '<tr><td colspan="4" class="no-results">لم يتم تحميل البيانات</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" class="no-results">لم يتم تحميل البيانات</td></tr>';
+            resultCountEl.textContent = '';
             return;
         }
 
-        const searchStr = document.getElementById('searchAll').value.trim().toLowerCase();
-        const wh = document.getElementById('warehouse').value.trim().toLowerCase();
-        const words = searchStr.split(/\s+/).filter(w => w);
-
-        let results;
-        if (words.length === 0 && !wh) {
-            results = data.filter(row => {
-                const warehouse = ((row[1] || '') + '').trim();
-                return warehouse !== '';
-            });
-        } else {
-            results = data.filter(row => {
-                const warehouseRaw = ((row[1] || '') + '');
-                const warehouse = warehouseRaw.toLowerCase().trim();
-                const itemName = ((row[2] || '') + '').toLowerCase();
-
-                if (!warehouseRaw.trim()) {
-                    return false;
-                }
-
-                const allWordsMatch = words.length === 0 || words.every(word => itemName.includes(word));
-                const matchWh = !wh || warehouse.includes(wh);
-
-                return allWordsMatch && matchWh;
-            });
-        }
-
-        results.sort((a, b) => {
-            const nameA = (a[2] || '').toString();
-            const nameB = (b[2] || '').toString();
-            return nameA.localeCompare(nameB, 'ar');
-        });
-
-        const tbody = document.getElementById('resultsBody');
+        const { results, words } = getFilteredResults();
         tbody.innerHTML = '';
+        resultCountEl.textContent = `عدد النتائج: ${results.length}`;
 
         if (results.length === 0) {
             tbody.innerHTML = '<tr><td colspan="4" class="no-results">لا توجد نتائج مطابقة</td></tr>';
         } else {
             results.forEach(row => {
-                const warehouse = row[1] || '';
-                const itemName  = row[2] || '';
-                const qtyRaw    = row[3];
-                const priceRaw  = row[4];
+                const warehouse = (row[colMap.warehouse] || '').toString();
+                const itemName  = (row[colMap.item] || '').toString();
+                const qtyRaw    = row[colMap.qty];
+                const priceRaw  = row[colMap.price];
 
                 const qty   = formatQty(qtyRaw);
                 const price = formatPrice(priceRaw);
 
                 const tr = document.createElement('tr');
-                const bgColor = getColorForWarehouse(warehouse.toString());
+                const bgColor = getColorForWarehouse(warehouse);
                 tr.style.backgroundColor = bgColor;
 
                 tr.innerHTML = `
-                    <td>${warehouse}</td>
-                    <td>${itemName}</td>
+                    <td>${escapeHtml(warehouse)}</td>
+                    <td>${highlightWords(itemName, words)}</td>
                     <td>${qty}</td>
                     <td>${price}</td>
                 `;
@@ -368,6 +498,45 @@
             });
         }
     }
+
+    function exportResults() {
+        const { results } = getFilteredResults();
+        if (!results.length) return;
+
+        const rows = [['المستودع', 'اسم المادة', 'العدد', 'سعر المبيع']];
+        results.forEach(row => {
+            rows.push([
+                (row[colMap.warehouse] || '').toString(),
+                (row[colMap.item] || '').toString(),
+                row[colMap.qty] || '',
+                row[colMap.price] || ''
+            ]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'نتائج البحث');
+        XLSX.writeFile(wb, 'نتائج_البحث.xlsx');
+    }
+
+    //排序 على الأعمدة
+    document.querySelectorAll('#results th').forEach(th => {
+        th.addEventListener('click', () => {
+            const col = th.getAttribute('data-col');
+            if (currentSort.col === col) {
+                currentSort.dir *= -1;
+            } else {
+                currentSort.col = col;
+                currentSort.dir = 1;
+            }
+            document.querySelectorAll('#results th .arrow').forEach(a => a.textContent = '');
+            th.querySelector('.arrow').textContent = currentSort.dir === 1 ? '▲' : '▼';
+            search();
+        });
+    });
+
+    clearBtn.addEventListener('click', clearQuery);
+    exportBtn.addEventListener('click', exportResults);
 
     loadExcel();
 </script>
