@@ -4,7 +4,9 @@
     <meta charset="UTF-8" />
     <title>بحث الأصناف - دبوس البسطة</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
     <style>
         :root {
             --primary: #0056b3;
@@ -13,7 +15,9 @@
             --text: #222;
         }
 
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
 
         body {
             margin: 0;
@@ -35,7 +39,7 @@
             background: white;
             border-radius: 10px;
             padding: 12px 14px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
             margin-bottom: 14px;
         }
 
@@ -97,6 +101,7 @@
             font-weight: 500;
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 6px;
         }
 
@@ -137,7 +142,8 @@
             width: auto;
         }
 
-        th, td {
+        th,
+        td {
             border: 1px solid #e0e0e0;
             padding: 6px 10px;
             font-size: 12px;
@@ -189,6 +195,48 @@
             margin-top: 4px;
         }
 
+        /*
+            زر التحديث مثبت أعلى الصفحة على الجانب الأيسر،
+            ولا يأخذ مساحة من تصميم الصفحة.
+        */
+        #refreshBtn {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 9999;
+            background: #198754;
+            color: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+            min-width: 110px;
+        }
+
+        #refreshBtn:hover:not(:disabled) {
+            background: #157347;
+        }
+
+        #refreshBtn.loading {
+            pointer-events: none;
+        }
+
+        .refresh-icon {
+            display: inline-block;
+            font-size: 15px;
+        }
+
+        #refreshBtn.loading .refresh-icon {
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
         @media (max-width: 768px) {
             main {
                 padding: 10px 8px 18px;
@@ -207,34 +255,85 @@
                 font-size: 11px;
             }
 
-            th, td {
+            th,
+            td {
                 padding: 5px 6px;
+            }
+
+            #refreshBtn {
+                top: 8px;
+                left: 8px;
+                padding: 6px 10px;
+                font-size: 12px;
+                min-width: 95px;
             }
         }
     </style>
 </head>
+
 <body>
+
+    <!-- زر تحديث البيانات -->
+    <button
+        id="refreshBtn"
+        type="button"
+        title="تحديث البيانات من ملف Excel"
+        aria-label="تحديث البيانات"
+        disabled
+    >
+        <span class="refresh-icon">🔄</span>
+        <span class="refresh-text">تحديث</span>
+    </button>
+
     <main>
-        <div id="loadStatus" style="display:none;"></div>
-        <div id="lastModified" style="display:none;"></div>
+        <div id="loadStatus" style="display: none;"></div>
+        <div id="lastModified" style="display: none;"></div>
 
         <section class="card">
-            <div class="card-title">🔍 بحث الأصناف</div>
+            <div class="card-title">
+                🔍 بحث الأصناف
+            </div>
 
             <div class="search-grid">
                 <div class="field-group">
                     <label for="searchAll">كلمات بحث</label>
-                    <input type="text" id="searchAll" placeholder="اكتب كلمات مفصولة بمسافة مثل: قسطل 25 اخضر" disabled>
+                    <input
+                        type="text"
+                        id="searchAll"
+                        placeholder="اكتب كلمات مفصولة بمسافة مثل: قسطل 25 اخضر"
+                        disabled
+                    />
                 </div>
+
                 <div class="field-group">
-                    <label for="warehouse">جزء من اسم المستودع (اختياري)</label>
-                    <input type="text" id="warehouse" placeholder="مثال: ديوان أو 3-" disabled>
+                    <label for="warehouse">جزء من اسم المستودع اختياري</label>
+                    <input
+                        type="text"
+                        id="warehouse"
+                        placeholder="مثال: ديوان أو 3-"
+                        disabled
+                    />
                 </div>
             </div>
 
             <div class="search-actions">
-                <button class="btn-secondary" id="clearBtn" disabled>🧹 مسح البحث</button>
-                <button class="btn-primary" id="exportBtn" disabled>⬇️ تصدير النتائج إلى Excel</button>
+                <button
+                    class="btn-secondary"
+                    id="clearBtn"
+                    type="button"
+                    disabled
+                >
+                    🧹 مسح البحث
+                </button>
+
+                <button
+                    class="btn-primary"
+                    id="exportBtn"
+                    type="button"
+                    disabled
+                >
+                    ⬇️ تصدير النتائج إلى Excel
+                </button>
             </div>
         </section>
 
@@ -243,282 +342,589 @@
                 <span>📋 النتائج</span>
                 <span class="result-count" id="resultCount"></span>
             </div>
+
             <div class="table-wrapper">
                 <table id="results">
                     <thead>
-                    <tr>
-                        <th data-col="warehouse">المستودع <span class="arrow"></span></th>
-                        <th data-col="qty">العدد <span class="arrow"></span></th>
-                        <th data-col="item">الصنف <span class="arrow"></span></th>
-                    </tr>
+                        <tr>
+                            <th data-col="warehouse">
+                                المستودع
+                                <span class="arrow"></span>
+                            </th>
+
+                            <th data-col="qty">
+                                العدد
+                                <span class="arrow"></span>
+                            </th>
+
+                            <th data-col="item">
+                                الصنف
+                                <span class="arrow"></span>
+                            </th>
+                        </tr>
                     </thead>
+
                     <tbody id="resultsBody"></tbody>
                 </table>
             </div>
         </section>
     </main>
 
-<script>
-    const DATA_SOURCE_URL = 'جرد المواد.xlsx';
+    <script>
+        const DATA_SOURCE_URL = 'جرد المواد.xlsx';
 
-    let data = [];
-    let colMap = { warehouse: 1, item: 2, qty: 3 };
-    let currentSort = { col: null, dir: 1 };
-    const STORAGE_KEY = 'itemSearch_lastQuery';
+        let data = [];
+        let colMap = {
+            warehouse: 1,
+            item: 2,
+            qty: 3
+        };
 
-    const searchAllEl = document.getElementById('searchAll');
-    const warehouseEl = document.getElementById('warehouse');
-    const clearBtn = document.getElementById('clearBtn');
-    const exportBtn = document.getElementById('exportBtn');
-    const resultCountEl = document.getElementById('resultCount');
+        let currentSort = {
+            col: null,
+            dir: 1
+        };
 
-    function formatQty(value) {
-        const num = Number(value);
-        if (isNaN(num)) return value || '';
-        return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
-    }
+        const STORAGE_KEY = 'itemSearch_lastQuery';
 
-    function getColorForWarehouse(name) {
-        if (!name) return '#ffffff';
-        const lower = name.toString().toLowerCase();
+        const searchAllEl = document.getElementById('searchAll');
+        const warehouseEl = document.getElementById('warehouse');
+        const clearBtn = document.getElementById('clearBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const refreshTextEl = refreshBtn.querySelector('.refresh-text');
+        const resultCountEl = document.getElementById('resultCount');
+        const resultsBodyEl = document.getElementById('resultsBody');
+        const loadStatusEl = document.getElementById('loadStatus');
+        const lastModifiedEl = document.getElementById('lastModified');
 
-        if (lower.includes('ديوان')) {
-            return '#d0e7ff';
+        function formatQty(value) {
+            const num = Number(value);
+
+            if (isNaN(num)) {
+                return value || '';
+            }
+
+            return num.toLocaleString('en-US', {
+                maximumFractionDigits: 0
+            });
         }
 
-        const colors = [
-            '#e8f5e9', '#fff3e0', '#f3e5f5', '#e0f7fa',
-            '#fbe9e7', '#ede7f6', '#f9fbe7'
-        ];
+        function getColorForWarehouse(name) {
+            if (!name) {
+                return '#ffffff';
+            }
 
-        let hash = 0;
-        for (let i = 0; i < name.length; i++) {
-            hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            const lower = name.toString().toLowerCase();
+
+            if (lower.includes('ديوان')) {
+                return '#d0e7ff';
+            }
+
+            const colors = [
+                '#e8f5e9',
+                '#fff3e0',
+                '#f3e5f5',
+                '#e0f7fa',
+                '#fbe9e7',
+                '#ede7f6',
+                '#f9fbe7'
+            ];
+
+            let hash = 0;
+
+            for (let i = 0; i < name.length; i++) {
+                hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            }
+
+            const index = Math.abs(hash) % colors.length;
+
+            return colors[index];
         }
-        const index = Math.abs(hash) % colors.length;
-        return colors[index];
-    }
 
-    function setControlsEnabled(enabled) {
-        [searchAllEl, warehouseEl, clearBtn, exportBtn].forEach(el => el.disabled = !enabled);
-    }
-
-    function showStatus(message, isError) {
-        const statusEl = document.getElementById('loadStatus');
-        statusEl.textContent = message;
-        statusEl.style.display = 'block';
-        if (isError) {
-            statusEl.style.color = '#dc3545';
-            statusEl.style.background = '#f8d7da';
-            statusEl.style.borderColor = '#f5c6cb';
-        } else {
-            statusEl.style.color = '#28a745';
-            statusEl.style.background = '#d4edda';
-            statusEl.style.borderColor = '#c3e6cb';
+        function setControlsEnabled(enabled) {
+            [
+                searchAllEl,
+                warehouseEl,
+                clearBtn,
+                exportBtn
+            ].forEach(element => {
+                element.disabled = !enabled;
+            });
         }
-    }
 
-    async function loadExcel() {
-        setControlsEnabled(false);
-        showStatus('⏳ جاري تحميل البيانات...', false);
+        function setRefreshLoading(isLoading) {
+            refreshBtn.disabled = isLoading;
+            refreshBtn.classList.toggle('loading', isLoading);
 
-        try {
-            const response = await fetch(DATA_SOURCE_URL + (DATA_SOURCE_URL.includes('?') ? '&' : '?') + 'v=' + Date.now());
+            if (isLoading) {
+                refreshTextEl.textContent = 'جاري التحديث';
+                refreshBtn.querySelector('.refresh-icon').textContent = '⟳';
+            } else {
+                refreshTextEl.textContent = 'تحديث';
+                refreshBtn.querySelector('.refresh-icon').textContent = '🔄';
+            }
+        }
 
-            if (!response.ok) {
-                showStatus('❌ خطأ في تحميل الملف. تأكد أنه موجود على GitHub ومنشور بشكل صحيح.', true);
+        function showStatus(message, isError) {
+            loadStatusEl.textContent = message;
+            loadStatusEl.style.display = 'block';
+
+            if (isError) {
+                loadStatusEl.style.color = '#dc3545';
+                loadStatusEl.style.background = '#f8d7da';
+                loadStatusEl.style.borderColor = '#f5c6cb';
+            } else {
+                loadStatusEl.style.color = '#28a745';
+                loadStatusEl.style.background = '#d4edda';
+                loadStatusEl.style.borderColor = '#c3e6cb';
+            }
+        }
+
+        async function loadExcel() {
+            const hadPreviousData = data.length > 0;
+
+            setRefreshLoading(true);
+
+            if (!hadPreviousData) {
+                setControlsEnabled(false);
+            }
+
+            showStatus('⏳ جاري تحميل البيانات...', false);
+
+            try {
+                const separator = DATA_SOURCE_URL.includes('?')
+                    ? '&'
+                    : '?';
+
+                const freshUrl =
+                    DATA_SOURCE_URL +
+                    separator +
+                    'v=' +
+                    Date.now();
+
+                const response = await fetch(freshUrl, {
+                    cache: 'no-store'
+                });
+
+                if (!response.ok) {
+                    throw new Error('HTTP error: ' + response.status);
+                }
+
+                const lastMod = response.headers.get('Last-Modified');
+
+                if (lastMod) {
+                    lastModifiedEl.textContent =
+                        '🕒 آخر تعديل على الملف: ' +
+                        new Date(lastMod).toLocaleString('ar');
+
+                    lastModifiedEl.style.display = 'block';
+                } else {
+                    lastModifiedEl.textContent =
+                        '🕒 آخر تحديث للبيانات: ' +
+                        new Date().toLocaleString('ar');
+
+                    lastModifiedEl.style.display = 'block';
+                }
+
+                const arrayBuffer = await response.arrayBuffer();
+
+                const workbook = XLSX.read(
+                    new Uint8Array(arrayBuffer),
+                    {
+                        type: 'array'
+                    }
+                );
+
+                const sheet =
+                    workbook.Sheets[workbook.SheetNames[0]];
+
+                const allRows = XLSX.utils.sheet_to_json(
+                    sheet,
+                    {
+                        header: 1
+                    }
+                );
+
+                /*
+                    البيانات تبدأ من الصف الرابع،
+                    لذلك نحذف أول ثلاثة صفوف.
+                */
+                data = allRows.slice(3);
+
+                showStatus(
+                    `✅ تم تحميل ${data.length} صنف من الملف.`,
+                    false
+                );
+
+                setControlsEnabled(true);
+
+                /*
+                    لا نمسح البحث عند التحديث،
+                    بل نعيد عرض النتائج بنفس الفلاتر الحالية.
+                */
+                search();
+
+            } catch (error) {
+                console.error(error);
+
+                showStatus(
+                    '❌ خطأ في تحميل الملف. تأكد أنه موجود على GitHub ومنشور بشكل صحيح.',
+                    true
+                );
+
+                /*
+                    إذا كانت البيانات القديمة موجودة،
+                    نترك أدوات البحث فعالة.
+                */
+                setControlsEnabled(data.length > 0);
+
+            } finally {
+                setRefreshLoading(false);
+            }
+        }
+
+        function saveQuery() {
+            try {
+                localStorage.setItem(
+                    STORAGE_KEY,
+                    JSON.stringify({
+                        searchAll: searchAllEl.value,
+                        warehouse: warehouseEl.value
+                    })
+                );
+            } catch (error) {
+                // تجاهل أخطاء التخزين
+            }
+        }
+
+        function restoreLastQuery() {
+            try {
+                const saved = JSON.parse(
+                    localStorage.getItem(STORAGE_KEY) || '{}'
+                );
+
+                if (saved.searchAll) {
+                    searchAllEl.value = saved.searchAll;
+                }
+
+                if (saved.warehouse) {
+                    warehouseEl.value = saved.warehouse;
+                }
+
+            } catch (error) {
+                // تجاهل أخطاء التخزين
+            }
+        }
+
+        function clearQuery() {
+            searchAllEl.value = '';
+            warehouseEl.value = '';
+
+            try {
+                localStorage.removeItem(STORAGE_KEY);
+            } catch (error) {
+                // تجاهل أخطاء التخزين
+            }
+
+            search();
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function highlightWords(text, words) {
+            let safe = escapeHtml(text);
+
+            words.forEach(word => {
+                if (!word) {
+                    return;
+                }
+
+                const escapedWord = word.replace(
+                    /[.*+?^${}()|[\]\\]/g,
+                    '\\$&'
+                );
+
+                const regex = new RegExp(
+                    '(' + escapedWord + ')',
+                    'gi'
+                );
+
+                safe = safe.replace(
+                    regex,
+                    '<mark>$1</mark>'
+                );
+            });
+
+            return safe;
+        }
+
+        function getFilteredResults() {
+            if (data.length === 0) {
+                return {
+                    results: [],
+                    words: []
+                };
+            }
+
+            const searchStr =
+                searchAllEl.value.trim().toLowerCase();
+
+            const warehouseSearch =
+                warehouseEl.value.trim().toLowerCase();
+
+            const words = searchStr
+                .split(/\s+/)
+                .filter(word => word);
+
+            let results = data.filter(row => {
+                const warehouseRaw =
+                    (row[colMap.warehouse] || '') + '';
+
+                const warehouse =
+                    warehouseRaw.toLowerCase().trim();
+
+                const itemName =
+                    (row[colMap.item] || '')
+                    .toString()
+                    .toLowerCase();
+
+                if (!warehouseRaw.trim()) {
+                    return false;
+                }
+
+                const allWordsMatch =
+                    words.length === 0 ||
+                    words.every(word => itemName.includes(word));
+
+                const matchWarehouse =
+                    !warehouseSearch ||
+                    warehouse.includes(warehouseSearch);
+
+                return allWordsMatch && matchWarehouse;
+            });
+
+            if (currentSort.col) {
+                results.sort((a, b) => {
+                    let valueA = a[colMap[currentSort.col]];
+                    let valueB = b[colMap[currentSort.col]];
+
+                    if (currentSort.col === 'qty') {
+                        valueA = Number(valueA) || 0;
+                        valueB = Number(valueB) || 0;
+
+                        return (
+                            (valueA - valueB) *
+                            currentSort.dir
+                        );
+                    }
+
+                    valueA = (valueA || '').toString();
+                    valueB = (valueB || '').toString();
+
+                    return (
+                        valueA.localeCompare(valueB, 'ar') *
+                        currentSort.dir
+                    );
+                });
+
+            } else {
+                results.sort((a, b) => {
+                    const nameA =
+                        (a[colMap.item] || '').toString();
+
+                    const nameB =
+                        (b[colMap.item] || '').toString();
+
+                    return nameA.localeCompare(nameB, 'ar');
+                });
+            }
+
+            return {
+                results,
+                words
+            };
+        }
+
+        function search() {
+            if (data.length === 0) {
+                resultsBodyEl.innerHTML =
+                    '<tr>' +
+                    '<td colspan="3" class="no-results">' +
+                    'لم يتم تحميل البيانات' +
+                    '</td>' +
+                    '</tr>';
+
+                resultCountEl.textContent = '';
                 return;
             }
 
-            const lastMod = response.headers.get('Last-Modified');
-            const lastModEl = document.getElementById('lastModified');
-            if (lastMod) {
-                lastModEl.textContent = '🕒 آخر تعديل على الملف: ' + new Date(lastMod).toLocaleString('ar');
-                lastModEl.style.display = 'block';
+            const {
+                results,
+                words
+            } = getFilteredResults();
+
+            resultsBodyEl.innerHTML = '';
+
+            resultCountEl.textContent =
+                `عدد النتائج: ${results.length}`;
+
+            if (results.length === 0) {
+                resultsBodyEl.innerHTML =
+                    '<tr>' +
+                    '<td colspan="3" class="no-results">' +
+                    'لا توجد نتائج مطابقة' +
+                    '</td>' +
+                    '</tr>';
+
+                return;
             }
 
-            const arrayBuffer = await response.arrayBuffer();
-            const workbook = XLSX.read(new Uint8Array(arrayBuffer), {type: 'array'});
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const allRows = XLSX.utils.sheet_to_json(sheet, {header:1});
-            
-            data = allRows.slice(3);
-
-            showStatus(`✅ تم تحميل ${data.length} صنف من الملف.`, false);
-            setControlsEnabled(true);
-
-            restoreLastQuery();
-            search();
-
-            searchAllEl.addEventListener("input", () => { saveQuery(); search(); });
-            warehouseEl.addEventListener("input", () => { saveQuery(); search(); });
-
-        } catch (e) {
-            console.error(e);
-            showStatus('❌ خطأ في قراءة الملف.', true);
-        }
-    }
-
-    function saveQuery() {
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({
-                searchAll: searchAllEl.value,
-                warehouse: warehouseEl.value
-            }));
-        } catch (e) { /* تجاهل */ }
-    }
-
-    function restoreLastQuery() {
-        try {
-            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-            if (saved.searchAll) searchAllEl.value = saved.searchAll;
-            if (saved.warehouse) warehouseEl.value = saved.warehouse;
-        } catch (e) { /* تجاهل */ }
-    }
-
-    function clearQuery() {
-        searchAllEl.value = '';
-        warehouseEl.value = '';
-        try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
-        search();
-    }
-
-    function escapeHtml(str) {
-        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
-    function highlightWords(text, words) {
-        let safe = escapeHtml(text);
-        words.forEach(word => {
-            if (!word) return;
-            const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp('(' + escapedWord + ')', 'gi');
-            safe = safe.replace(regex, '<mark>$1</mark>');
-        });
-        return safe;
-    }
-
-    function getFilteredResults() {
-        if (data.length === 0) return { results: [], words: [] };
-
-        const searchStr = searchAllEl.value.trim().toLowerCase();
-        const wh = warehouseEl.value.trim().toLowerCase();
-        const words = searchStr.split(/\s+/).filter(w => w);
-
-        let results = data.filter(row => {
-            const warehouseRaw = ((row[colMap.warehouse] || '') + '');
-            const warehouse = warehouseRaw.toLowerCase().trim();
-            const itemName = ((row[colMap.item] || '') + '').toLowerCase();
-
-            if (!warehouseRaw.trim()) return false;
-
-            const allWordsMatch = words.length === 0 || words.every(word => itemName.includes(word));
-            const matchWh = !wh || warehouse.includes(wh);
-
-            return allWordsMatch && matchWh;
-        });
-
-        if (currentSort.col) {
-            results.sort((a, b) => {
-                let va = a[colMap[currentSort.col]];
-                let vb = b[colMap[currentSort.col]];
-                
-                if (currentSort.col === 'qty') {
-                    va = Number(va) || 0;
-                    vb = Number(vb) || 0;
-                    return (va - vb) * currentSort.dir;
-                }
-                
-                va = (va || '').toString();
-                vb = (vb || '').toString();
-                return va.localeCompare(vb, 'ar') * currentSort.dir;
-            });
-        } else {
-            results.sort((a, b) => {
-                const nameA = (a[colMap.item] || '').toString();
-                const nameB = (b[colMap.item] || '').toString();
-                return nameA.localeCompare(nameB, 'ar');
-            });
-        }
-
-        return { results, words };
-    }
-
-    function search() {
-        const tbody = document.getElementById('resultsBody');
-
-        if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" class="no-results">لم يتم تحميل البيانات</td></tr>';
-            resultCountEl.textContent = '';
-            return;
-        }
-
-        const { results, words } = getFilteredResults();
-        tbody.innerHTML = '';
-        resultCountEl.textContent = `عدد النتائج: ${results.length}`;
-
-        if (results.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" class="no-results">لا توجد نتائج مطابقة</td></tr>';
-        } else {
             results.forEach(row => {
-                const warehouse = (row[colMap.warehouse] || '').toString();
-                const itemName  = (row[colMap.item] || '').toString();
-                const qtyRaw    = row[colMap.qty];
+                const warehouse =
+                    (row[colMap.warehouse] || '').toString();
 
+                const itemName =
+                    (row[colMap.item] || '').toString();
+
+                const qtyRaw = row[colMap.qty];
                 const qty = formatQty(qtyRaw);
 
                 const tr = document.createElement('tr');
-                const bgColor = getColorForWarehouse(warehouse);
-                tr.style.backgroundColor = bgColor;
+
+                tr.style.backgroundColor =
+                    getColorForWarehouse(warehouse);
 
                 tr.innerHTML = `
                     <td>${escapeHtml(warehouse)}</td>
-                    <td>${qty}</td>
+                    <td>${escapeHtml(qty)}</td>
                     <td>${highlightWords(itemName, words)}</td>
                 `;
-                tbody.appendChild(tr);
+
+                resultsBodyEl.appendChild(tr);
             });
         }
-    }
 
-    function exportResults() {
-        const { results } = getFilteredResults();
-        if (!results.length) return;
+        function exportResults() {
+            const {
+                results
+            } = getFilteredResults();
 
-        const rows = [['المستودع', 'العدد', 'الصنف']];
-        results.forEach(row => {
-            rows.push([
-                (row[colMap.warehouse] || '').toString(),
-                row[colMap.qty] || '',
-                (row[colMap.item] || '').toString()
-            ]);
-        });
-
-        const ws = XLSX.utils.aoa_to_sheet(rows);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'نتائج البحث');
-        XLSX.writeFile(wb, 'نتائج_البحث.xlsx');
-    }
-
-    document.querySelectorAll('#results th').forEach(th => {
-        th.addEventListener('click', () => {
-            const col = th.getAttribute('data-col');
-            if (currentSort.col === col) {
-                currentSort.dir *= -1;
-            } else {
-                currentSort.col = col;
-                currentSort.dir = 1;
+            if (!results.length) {
+                return;
             }
-            document.querySelectorAll('#results th .arrow').forEach(a => a.textContent = '');
-            th.querySelector('.arrow').textContent = currentSort.dir === 1 ? '▲' : '▼';
+
+            const rows = [
+                ['المستودع', 'العدد', 'الصنف']
+            ];
+
+            results.forEach(row => {
+                rows.push([
+                    (row[colMap.warehouse] || '').toString(),
+                    row[colMap.qty] || '',
+                    (row[colMap.item] || '').toString()
+                ]);
+            });
+
+            const worksheet =
+                XLSX.utils.aoa_to_sheet(rows);
+
+            const workbook =
+                XLSX.utils.book_new();
+
+            XLSX.utils.book_append_sheet(
+                workbook,
+                worksheet,
+                'نتائج البحث'
+            );
+
+            XLSX.writeFile(
+                workbook,
+                'نتائج_البحث.xlsx'
+            );
+        }
+
+        /*
+            أحداث البحث
+        */
+        searchAllEl.addEventListener('input', () => {
+            saveQuery();
             search();
         });
-    });
 
-    clearBtn.addEventListener('click', clearQuery);
-    exportBtn.addEventListener('click', exportResults);
+        warehouseEl.addEventListener('input', () => {
+            saveQuery();
+            search();
+        });
 
-    loadExcel();
-</script>
+        clearBtn.addEventListener(
+            'click',
+            clearQuery
+        );
+
+        exportBtn.addEventListener(
+            'click',
+            exportResults
+        );
+
+        /*
+            زر التحديث:
+            تحميل ملف Excel من جديد بدون تحديث الصفحة.
+        */
+        refreshBtn.addEventListener(
+            'click',
+            loadExcel
+        );
+
+        /*
+            ترتيب الأعمدة
+        */
+        document
+            .querySelectorAll('#results th')
+            .forEach(th => {
+                th.addEventListener('click', () => {
+                    const col =
+                        th.getAttribute('data-col');
+
+                    if (currentSort.col === col) {
+                        currentSort.dir *= -1;
+                    } else {
+                        currentSort.col = col;
+                        currentSort.dir = 1;
+                    }
+
+                    document
+                        .querySelectorAll('#results th .arrow')
+                        .forEach(arrow => {
+                            arrow.textContent = '';
+                        });
+
+                    th.querySelector('.arrow').textContent =
+                        currentSort.dir === 1
+                            ? '▲'
+                            : '▼';
+
+                    search();
+                });
+            });
+
+        /*
+            استرجاع البحث السابق مرة واحدة
+        */
+        restoreLastQuery();
+
+        /*
+            التحميل الأول للبيانات
+        */
+        loadExcel();
+    </script>
+
 </body>
 </html>
