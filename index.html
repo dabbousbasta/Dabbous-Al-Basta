@@ -51,6 +51,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 8px;
         }
 
         .search-grid {
@@ -70,18 +71,116 @@
             color: #555;
         }
 
-        input[type="text"] {
+        input[type="text"],
+        select {
             padding: 6px 8px;
             border-radius: 6px;
             border: 1px solid #ccc;
-            font-size: 13px;
+            font-size: 16px; /* لا يقل عن 16px لمنع التكبير التلقائي على iOS */
             width: 100%;
+            background: white;
+            font-family: inherit;
         }
 
-        input[type="text"]:focus {
+        input[type="text"]:focus,
+        select:focus {
             outline: none;
             border-color: var(--primary);
             box-shadow: 0 0 0 1px #c7ddff;
+        }
+
+        button:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        th:focus-visible,
+        li:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+
+        .search-input-wrap {
+            position: relative;
+        }
+
+        .search-input-wrap input {
+            padding-inline-end: 32px;
+        }
+
+        .inline-clear-btn {
+            position: absolute;
+            inset-inline-end: 4px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            font-size: 15px;
+            color: #888;
+            cursor: pointer;
+            padding: 4px 7px;
+            border-radius: 50%;
+            display: none;
+            line-height: 1;
+        }
+
+        .inline-clear-btn:hover {
+            background: #eee;
+            color: #333;
+        }
+
+        #autocompleteList {
+            position: absolute;
+            top: calc(100% + 4px);
+            right: 0;
+            left: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+            list-style: none;
+            margin: 0;
+            padding: 4px 0;
+            max-height: 240px;
+            overflow-y: auto;
+            z-index: 50;
+            display: none;
+        }
+
+        #autocompleteList li {
+            padding: 7px 12px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        #autocompleteList li:hover,
+        #autocompleteList li:focus {
+            background: var(--primary-light);
+        }
+
+        .history-row {
+            margin-top: 8px;
+            display: none;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .history-row .history-label {
+            font-size: 11px;
+            color: #777;
+        }
+
+        .history-chip {
+            background: var(--primary-light);
+            color: var(--primary);
+            border: none;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        .history-chip:hover {
+            background: #cfe3ff;
         }
 
         .search-actions {
@@ -103,6 +202,7 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
+            font-family: inherit;
         }
 
         .btn-primary {
@@ -176,6 +276,13 @@
             text-align: center;
             padding: 16px 0;
             color: #c00;
+        }
+
+        #loadMoreBtn {
+            display: none;
+            margin: 12px auto 0;
+            background: var(--primary-light);
+            color: var(--primary);
         }
 
         #loadStatus {
@@ -268,6 +375,80 @@
                 min-width: 95px;
             }
         }
+
+        /* عرض النتائج كبطاقات على الهاتف بدل جدول بتمرير أفقي */
+        @media (max-width: 640px) {
+            #results,
+            #results thead,
+            #results tbody,
+            #results th,
+            #results td,
+            #results tr {
+                display: block;
+            }
+
+            #results thead tr {
+                position: absolute;
+                top: -9999px;
+                left: -9999px;
+            }
+
+            .table-wrapper {
+                overflow-x: visible;
+            }
+
+            #results {
+                width: 100%;
+            }
+
+            #results tr {
+                margin-bottom: 10px;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                padding: 6px 8px;
+            }
+
+            #results td {
+                border: none;
+                padding: 4px 4px 4px 108px;
+                position: relative;
+                white-space: normal;
+                text-align: right;
+                font-size: 13px;
+            }
+
+            #results td::before {
+                content: attr(data-label);
+                position: absolute;
+                inset-inline-start: 4px;
+                width: 96px;
+                font-weight: 600;
+                color: var(--primary);
+                font-size: 11px;
+            }
+        }
+
+        @media print {
+
+            #refreshBtn,
+            .search-actions,
+            .search-grid,
+            .history-row,
+            #autocompleteList,
+            #loadMoreBtn,
+            #lastModified {
+                display: none !important;
+            }
+
+            body {
+                background: white;
+            }
+
+            .card {
+                box-shadow: none;
+                border: 1px solid #ccc;
+            }
+        }
     </style>
 </head>
 
@@ -297,23 +478,38 @@
             <div class="search-grid">
                 <div class="field-group">
                     <label for="searchAll">كلمات بحث</label>
-                    <input
-                        type="text"
-                        id="searchAll"
-                        placeholder="اكتب كلمات مفصولة بمسافة مثل: قسطل 25 اخضر"
-                        disabled
-                    />
+                    <div class="search-input-wrap">
+                        <input
+                            type="text"
+                            id="searchAll"
+                            placeholder="اكتب كلمات مفصولة بمسافة مثل: قسطل 25 اخضر"
+                            autocomplete="off"
+                            role="combobox"
+                            aria-expanded="false"
+                            aria-owns="autocompleteList"
+                            disabled
+                        />
+                        <button
+                            type="button"
+                            class="inline-clear-btn"
+                            id="inlineClearBtn"
+                            aria-label="مسح النص"
+                            title="مسح النص"
+                        >✕</button>
+                        <ul id="autocompleteList" role="listbox"></ul>
+                    </div>
                 </div>
 
                 <div class="field-group">
-                    <label for="warehouse">جزء من اسم المستودع اختياري</label>
-                    <input
-                        type="text"
-                        id="warehouse"
-                        placeholder="مثال: ديوان أو 3-"
-                        disabled
-                    />
+                    <label for="warehouse">المستودع</label>
+                    <select id="warehouse" disabled>
+                        <option value="">كل المستودعات</option>
+                    </select>
                 </div>
+            </div>
+
+            <div class="history-row" id="historyRow">
+                <span class="history-label">عمليات بحث سابقة:</span>
             </div>
 
             <div class="search-actions">
@@ -324,6 +520,24 @@
                     disabled
                 >
                     🧹 مسح البحث
+                </button>
+
+                <button
+                    class="btn-secondary"
+                    id="copyBtn"
+                    type="button"
+                    disabled
+                >
+                    📋 نسخ النتائج
+                </button>
+
+                <button
+                    class="btn-secondary"
+                    id="printBtn"
+                    type="button"
+                    disabled
+                >
+                    🖨️ طباعة
                 </button>
 
                 <button
@@ -340,24 +554,24 @@
         <section class="card">
             <div class="card-title">
                 <span>📋 النتائج</span>
-                <span class="result-count" id="resultCount"></span>
+                <span class="result-count" id="resultCount" aria-live="polite" aria-atomic="true"></span>
             </div>
 
             <div class="table-wrapper">
                 <table id="results">
                     <thead>
                         <tr>
-                            <th data-col="warehouse">
+                            <th data-col="warehouse" tabindex="0" role="button">
                                 المستودع
                                 <span class="arrow"></span>
                             </th>
 
-                            <th data-col="qty">
+                            <th data-col="qty" tabindex="0" role="button">
                                 العدد
                                 <span class="arrow"></span>
                             </th>
 
-                            <th data-col="item">
+                            <th data-col="item" tabindex="0" role="button">
                                 الصنف
                                 <span class="arrow"></span>
                             </th>
@@ -367,11 +581,17 @@
                     <tbody id="resultsBody"></tbody>
                 </table>
             </div>
+
+            <button type="button" id="loadMoreBtn" class="btn-secondary"></button>
         </section>
     </main>
 
     <script>
         const DATA_SOURCE_URL = 'جرد المواد.xlsx';
+        const STORAGE_KEY = 'itemSearch_lastQuery';
+        const HISTORY_KEY = 'itemSearch_history';
+        const DISPLAY_STEP = 250;
+        const SEARCH_DEBOUNCE_MS = 200;
 
         let data = [];
         let colMap = {
@@ -380,23 +600,174 @@
             qty: 3
         };
 
+        let warehousesList = [];
+        let itemNamesList = []; // [{ raw, norm }] لأسماء الأصناف الفريدة (للاقتراحات)
+        let searchHistory = [];
         let currentSort = {
             col: null,
             dir: 1
         };
 
-        const STORAGE_KEY = 'itemSearch_lastQuery';
+        let displayedCount = DISPLAY_STEP;
+        let lastResults = [];
+        let pendingWarehouseValue = null;
+        let searchDebounceTimer = null;
+        let autocompleteVisible = false;
 
         const searchAllEl = document.getElementById('searchAll');
-        const warehouseEl = document.getElementById('warehouse');
+        const inlineClearBtn = document.getElementById('inlineClearBtn');
+        const autocompleteEl = document.getElementById('autocompleteList');
+        const warehouseSelectEl = document.getElementById('warehouse');
+        const historyRowEl = document.getElementById('historyRow');
         const clearBtn = document.getElementById('clearBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const printBtn = document.getElementById('printBtn');
         const exportBtn = document.getElementById('exportBtn');
+        const loadMoreBtn = document.getElementById('loadMoreBtn');
         const refreshBtn = document.getElementById('refreshBtn');
         const refreshTextEl = refreshBtn.querySelector('.refresh-text');
         const resultCountEl = document.getElementById('resultCount');
         const resultsBodyEl = document.getElementById('resultsBody');
         const loadStatusEl = document.getElementById('loadStatus');
         const lastModifiedEl = document.getElementById('lastModified');
+
+        /* =========================================================
+           تطبيع النص العربي (Arabic Normalization)
+           - إزالة التشكيل
+           - توحيد الألف (أ إ آ ا -> ا)
+           - توحيد التاء المربوطة والهاء (ة -> ه)
+           - توحيد الياء والألف المقصورة (ى -> ي)
+           - إزالة التطويل (ـ)
+           - توحيد المسافات
+           ========================================================= */
+        function normalizeArabic(text) {
+            if (!text) {
+                return '';
+            }
+
+            let t = text.toString();
+
+            // إزالة التشكيل والتنوين
+            t = t.replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '');
+
+            // إزالة التطويل (الكشيدة)
+            t = t.replace(/\u0640+/g, '');
+
+            // توحيد أشكال الألف
+            t = t.replace(/[إأآا]/g, 'ا');
+
+            // توحيد التاء المربوطة
+            t = t.replace(/ة/g, 'ه');
+
+            // توحيد الألف المقصورة والياء
+            t = t.replace(/ى/g, 'ي');
+
+            // توحيد المسافات
+            t = t.replace(/\s+/g, ' ').trim();
+
+            return t.toLowerCase();
+        }
+
+        // يبني نمط Regex يطابق الأشكال الأصلية المختلفة للحرف المُطبَّع (للتظليل الصحيح)
+        function buildFlexibleArabicPattern(normalizedWord) {
+            const map = {
+                'ا': '[اأإآ]',
+                'ه': '[هة]',
+                'ي': '[يى]'
+            };
+
+            let pattern = '';
+
+            for (const ch of normalizedWord) {
+                const piece = map[ch] || ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                pattern += piece;
+                // السماح بوجود تشكيل أو تطويل اختياري بين الحروف
+                pattern += '[\\u064B-\\u065F\\u0670\\u06D6-\\u06ED\\u0640]*';
+            }
+
+            return pattern;
+        }
+
+        /* =========================================================
+           اكتشاف الأعمدة من رؤوس الملف تلقائيًا، مع رجوع آمن
+           للإعدادات الافتراضية المتوافقة مع الملف الحالي
+           ========================================================= */
+        function detectColumns(allRows) {
+            const headerKeywords = {
+                warehouse: ['مستودع', 'فرع'],
+                item: ['صنف', 'المادة', 'اسم المادة'],
+                qty: ['عدد', 'كمية']
+            };
+
+            const maxHeaderScanRows = Math.min(8, allRows.length);
+
+            for (let r = 0; r < maxHeaderScanRows; r++) {
+                const row = allRows[r] || [];
+                const found = {};
+
+                row.forEach((cell, colIndex) => {
+                    const cellText = (cell || '').toString().trim();
+
+                    if (!cellText) {
+                        return;
+                    }
+
+                    Object.keys(headerKeywords).forEach(key => {
+                        if (found[key] !== undefined) {
+                            return;
+                        }
+
+                        if (headerKeywords[key].some(kw => cellText.includes(kw))) {
+                            found[key] = colIndex;
+                        }
+                    });
+                });
+
+                if (
+                    found.warehouse !== undefined &&
+                    found.item !== undefined &&
+                    found.qty !== undefined
+                ) {
+                    return {
+                        colMap: found,
+                        dataStartIndex: r + 1,
+                        detected: true
+                    };
+                }
+            }
+
+            // لم يتم التعرف على رؤوس واضحة، نستخدم الإعدادات المعروفة للملف الحالي
+            return {
+                colMap: { warehouse: 1, item: 2, qty: 3 },
+                dataStartIndex: 3,
+                detected: false
+            };
+        }
+
+        // يتحقق أن الأعمدة المكتشفة تحتوي فعليًا على بيانات، لتفادي عرض نتائج فارغة أو خاطئة
+        function validateColumns(rows, map) {
+            const sampleSize = Math.min(30, rows.length);
+            let warehouseOk = false;
+            let itemOk = false;
+
+            for (let i = 0; i < sampleSize; i++) {
+                const row = rows[i] || [];
+
+                if (!warehouseOk && (row[map.warehouse] || '').toString().trim()) {
+                    warehouseOk = true;
+                }
+
+                if (!itemOk && (row[map.item] || '').toString().trim()) {
+                    itemOk = true;
+                }
+
+                if (warehouseOk && itemOk) {
+                    break;
+                }
+            }
+
+            return warehouseOk && itemOk;
+        }
 
         function formatQty(value) {
             const num = Number(value);
@@ -443,14 +814,15 @@
         }
 
         function setControlsEnabled(enabled) {
-            [
-                searchAllEl,
-                warehouseEl,
-                clearBtn,
-                exportBtn
-            ].forEach(element => {
+            [searchAllEl, warehouseSelectEl, clearBtn].forEach(element => {
                 element.disabled = !enabled;
             });
+
+            if (!enabled) {
+                exportBtn.disabled = true;
+                copyBtn.disabled = true;
+                printBtn.disabled = true;
+            }
         }
 
         function setRefreshLoading(isLoading) {
@@ -493,15 +865,8 @@
             showStatus('⏳ جاري تحميل البيانات...', false);
 
             try {
-                const separator = DATA_SOURCE_URL.includes('?')
-                    ? '&'
-                    : '?';
-
-                const freshUrl =
-                    DATA_SOURCE_URL +
-                    separator +
-                    'v=' +
-                    Date.now();
+                const separator = DATA_SOURCE_URL.includes('?') ? '&' : '?';
+                const freshUrl = DATA_SOURCE_URL + separator + 'v=' + Date.now();
 
                 const response = await fetch(freshUrl, {
                     cache: 'no-store'
@@ -515,73 +880,115 @@
 
                 if (lastMod) {
                     lastModifiedEl.textContent =
-                        '🕒 آخر تعديل على الملف: ' +
-                        new Date(lastMod).toLocaleString('ar');
-
+                        '🕒 آخر تعديل على الملف: ' + new Date(lastMod).toLocaleString('ar');
                     lastModifiedEl.style.display = 'block';
                 } else {
                     lastModifiedEl.textContent =
-                        '🕒 آخر تحديث للبيانات: ' +
-                        new Date().toLocaleString('ar');
-
+                        '🕒 آخر تحديث للبيانات: ' + new Date().toLocaleString('ar');
                     lastModifiedEl.style.display = 'block';
                 }
 
                 const arrayBuffer = await response.arrayBuffer();
 
-                const workbook = XLSX.read(
-                    new Uint8Array(arrayBuffer),
-                    {
-                        type: 'array'
-                    }
-                );
+                const workbook = XLSX.read(new Uint8Array(arrayBuffer), {
+                    type: 'array'
+                });
 
-                const sheet =
-                    workbook.Sheets[workbook.SheetNames[0]];
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
-                const allRows = XLSX.utils.sheet_to_json(
-                    sheet,
-                    {
-                        header: 1
-                    }
-                );
+                const allRows = XLSX.utils.sheet_to_json(sheet, {
+                    header: 1
+                });
 
-                /*
-                    البيانات تبدأ من الصف الرابع،
-                    لذلك نحذف أول ثلاثة صفوف.
-                */
-                data = allRows.slice(3);
+                const detection = detectColumns(allRows);
+                const rows = allRows.slice(detection.dataStartIndex);
+
+                if (!validateColumns(rows, detection.colMap)) {
+                    throw new Error('COLUMNS_NOT_FOUND');
+                }
+
+                colMap = detection.colMap;
+                data = rows;
+
+                buildWarehousesList();
+                buildItemNamesIndex();
 
                 showStatus(
-                    `✅ تم تحميل ${data.length} صنف من الملف.`,
+                    `✅ تم تحميل ${data.length.toLocaleString('en-US')} صنف من الملف.`,
                     false
                 );
 
                 setControlsEnabled(true);
 
-                /*
-                    لا نمسح البحث عند التحديث،
-                    بل نعيد عرض النتائج بنفس الفلاتر الحالية.
-                */
+                resetDisplayCount();
+                hideAutocomplete();
                 search();
 
             } catch (error) {
                 console.error(error);
 
-                showStatus(
-                    '❌ خطأ في تحميل الملف. تأكد أنه موجود على GitHub ومنشور بشكل صحيح.',
-                    true
-                );
+                if (error && error.message === 'COLUMNS_NOT_FOUND') {
+                    showStatus(
+                        '❌ تعذر التعرف على أعمدة الملف (المستودع / الصنف / العدد). تأكد من تنسيق ملف Excel.',
+                        true
+                    );
+                } else {
+                    showStatus(
+                        '❌ خطأ في تحميل الملف. تأكد أنه موجود على GitHub ومنشور بشكل صحيح.',
+                        true
+                    );
+                }
 
-                /*
-                    إذا كانت البيانات القديمة موجودة،
-                    نترك أدوات البحث فعالة.
-                */
                 setControlsEnabled(data.length > 0);
 
             } finally {
                 setRefreshLoading(false);
             }
+        }
+
+        function buildWarehousesList() {
+            const set = new Set();
+
+            data.forEach(row => {
+                const w = (row[colMap.warehouse] || '').toString().trim();
+
+                if (w) {
+                    set.add(w);
+                }
+            });
+
+            warehousesList = Array.from(set).sort((a, b) => a.localeCompare(b, 'ar'));
+
+            const valueToRestore = pendingWarehouseValue || warehouseSelectEl.value;
+
+            warehouseSelectEl.innerHTML =
+                '<option value="">كل المستودعات</option>' +
+                warehousesList
+                    .map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`)
+                    .join('');
+
+            if (valueToRestore && warehousesList.includes(valueToRestore)) {
+                warehouseSelectEl.value = valueToRestore;
+            }
+
+            pendingWarehouseValue = null;
+        }
+
+        function buildItemNamesIndex() {
+            const set = new Set();
+
+            data.forEach(row => {
+                const name = (row[colMap.item] || '').toString().trim();
+
+                if (name) {
+                    set.add(name);
+                }
+            });
+
+            itemNamesList = Array.from(set).map(name => ({
+                raw: name,
+                norm: normalizeArabic(name)
+            }));
         }
 
         function saveQuery() {
@@ -590,7 +997,7 @@
                     STORAGE_KEY,
                     JSON.stringify({
                         searchAll: searchAllEl.value,
-                        warehouse: warehouseEl.value
+                        warehouse: warehouseSelectEl.value
                     })
                 );
             } catch (error) {
@@ -600,16 +1007,14 @@
 
         function restoreLastQuery() {
             try {
-                const saved = JSON.parse(
-                    localStorage.getItem(STORAGE_KEY) || '{}'
-                );
+                const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
 
                 if (saved.searchAll) {
                     searchAllEl.value = saved.searchAll;
                 }
 
                 if (saved.warehouse) {
-                    warehouseEl.value = saved.warehouse;
+                    pendingWarehouseValue = saved.warehouse;
                 }
 
             } catch (error) {
@@ -619,7 +1024,9 @@
 
         function clearQuery() {
             searchAllEl.value = '';
-            warehouseEl.value = '';
+            warehouseSelectEl.value = '';
+            toggleInlineClearBtn();
+            hideAutocomplete();
 
             try {
                 localStorage.removeItem(STORAGE_KEY);
@@ -627,7 +1034,9 @@
                 // تجاهل أخطاء التخزين
             }
 
+            resetDisplayCount();
             search();
+            searchAllEl.focus();
         }
 
         function escapeHtml(str) {
@@ -640,192 +1049,201 @@
         }
 
         function highlightWords(text, words) {
-            let safe = escapeHtml(text);
+            const safe = escapeHtml(text);
+            const cleanWords = (words || []).filter(Boolean);
 
-            words.forEach(word => {
-                if (!word) {
-                    return;
-                }
+            if (!cleanWords.length) {
+                return safe;
+            }
 
-                const escapedWord = word.replace(
-                    /[.*+?^${}()|[\]\\]/g,
-                    '\\$&'
-                );
+            const patterns = cleanWords
+                .slice()
+                .sort((a, b) => b.length - a.length) // الأطول أولًا لتفادي تطابق جزئي مبكر
+                .map(w => buildFlexibleArabicPattern(w));
 
-                const regex = new RegExp(
-                    '(' + escapedWord + ')',
-                    'gi'
-                );
+            const regex = new RegExp('(' + patterns.join('|') + ')', 'gi');
 
-                safe = safe.replace(
-                    regex,
-                    '<mark>$1</mark>'
-                );
-            });
+            return safe.replace(regex, '<mark>$1</mark>');
+        }
 
-            return safe;
+        function resetDisplayCount() {
+            displayedCount = DISPLAY_STEP;
         }
 
         function getFilteredResults() {
             if (data.length === 0) {
-                return {
-                    results: [],
-                    words: []
-                };
+                return { results: [], words: [] };
             }
 
-            const searchStr =
-                searchAllEl.value.trim().toLowerCase();
+            const searchRaw = searchAllEl.value.trim();
+            const searchNorm = normalizeArabic(searchRaw);
+            const words = searchNorm.split(' ').filter(Boolean);
+            const warehouseFilter = warehouseSelectEl.value;
 
-            const warehouseSearch =
-                warehouseEl.value.trim().toLowerCase();
+            const scored = [];
 
-            const words = searchStr
-                .split(/\s+/)
-                .filter(word => word);
+            data.forEach(row => {
+                const warehouseRaw = (row[colMap.warehouse] || '') + '';
+                const warehouse = warehouseRaw.trim();
 
-            let results = data.filter(row => {
-                const warehouseRaw =
-                    (row[colMap.warehouse] || '') + '';
-
-                const warehouse =
-                    warehouseRaw.toLowerCase().trim();
-
-                const itemName =
-                    (row[colMap.item] || '')
-                    .toString()
-                    .toLowerCase();
-
-                if (!warehouseRaw.trim()) {
-                    return false;
+                if (!warehouse) {
+                    return;
                 }
 
-                const allWordsMatch =
-                    words.length === 0 ||
-                    words.every(word => itemName.includes(word));
+                if (warehouseFilter && warehouse !== warehouseFilter) {
+                    return;
+                }
 
-                const matchWarehouse =
-                    !warehouseSearch ||
-                    warehouse.includes(warehouseSearch);
+                const itemRaw = (row[colMap.item] || '').toString();
+                const itemNorm = normalizeArabic(itemRaw);
 
-                return allWordsMatch && matchWarehouse;
+                let score = 1;
+
+                if (words.length > 0) {
+                    const allMatch = words.every(w => itemNorm.includes(w));
+
+                    if (!allMatch) {
+                        return;
+                    }
+
+                    if (itemNorm === searchNorm) {
+                        score = 4; // تطابق كامل
+                    } else if (itemNorm.startsWith(searchNorm)) {
+                        score = 3; // يبدأ بالعبارة كاملة
+                    } else {
+                        const tokens = itemNorm.split(' ');
+                        const allStartToken = words.every(w => tokens.some(tok => tok.startsWith(w)));
+                        score = allStartToken ? 2 : 1; // كلمات تبدأ بها أجزاء الاسم، أو تطابق جزئي عادي
+                    }
+                }
+
+                scored.push({ row, score });
             });
 
             if (currentSort.col) {
-                results.sort((a, b) => {
-                    let valueA = a[colMap[currentSort.col]];
-                    let valueB = b[colMap[currentSort.col]];
+                scored.sort((a, b) => {
+                    let valueA = a.row[colMap[currentSort.col]];
+                    let valueB = b.row[colMap[currentSort.col]];
 
                     if (currentSort.col === 'qty') {
                         valueA = Number(valueA) || 0;
                         valueB = Number(valueB) || 0;
-
-                        return (
-                            (valueA - valueB) *
-                            currentSort.dir
-                        );
+                        return (valueA - valueB) * currentSort.dir;
                     }
 
                     valueA = (valueA || '').toString();
                     valueB = (valueB || '').toString();
 
-                    return (
-                        valueA.localeCompare(valueB, 'ar') *
-                        currentSort.dir
-                    );
+                    return valueA.localeCompare(valueB, 'ar') * currentSort.dir;
                 });
+            } else if (words.length > 0) {
+                scored.sort((a, b) => {
+                    if (b.score !== a.score) {
+                        return b.score - a.score;
+                    }
 
+                    const nameA = (a.row[colMap.item] || '').toString();
+                    const nameB = (b.row[colMap.item] || '').toString();
+
+                    return nameA.localeCompare(nameB, 'ar');
+                });
             } else {
-                results.sort((a, b) => {
-                    const nameA =
-                        (a[colMap.item] || '').toString();
-
-                    const nameB =
-                        (b[colMap.item] || '').toString();
+                scored.sort((a, b) => {
+                    const nameA = (a.row[colMap.item] || '').toString();
+                    const nameB = (b.row[colMap.item] || '').toString();
 
                     return nameA.localeCompare(nameB, 'ar');
                 });
             }
 
             return {
-                results,
+                results: scored.map(s => s.row),
                 words
             };
+        }
+
+        function updateResultActionsState(total) {
+            const disable = data.length === 0 || total === 0;
+
+            exportBtn.disabled = disable;
+            copyBtn.disabled = disable;
+            printBtn.disabled = disable;
+
+            exportBtn.textContent = `⬇️ تصدير ${total.toLocaleString('en-US')} نتيجة`;
         }
 
         function search() {
             if (data.length === 0) {
                 resultsBodyEl.innerHTML =
-                    '<tr>' +
-                    '<td colspan="3" class="no-results">' +
-                    'لم يتم تحميل البيانات' +
-                    '</td>' +
-                    '</tr>';
-
+                    '<tr><td colspan="3" class="no-results">لم يتم تحميل البيانات</td></tr>';
                 resultCountEl.textContent = '';
+                loadMoreBtn.style.display = 'none';
+                updateResultActionsState(0);
                 return;
             }
 
-            const {
-                results,
-                words
-            } = getFilteredResults();
+            const { results, words } = getFilteredResults();
+            lastResults = results;
+
+            const total = results.length;
+
+            updateResultActionsState(total);
 
             resultsBodyEl.innerHTML = '';
 
-            resultCountEl.textContent =
-                `عدد النتائج: ${results.length}`;
-
-            if (results.length === 0) {
+            if (total === 0) {
+                resultCountEl.textContent = 'لا توجد نتائج';
                 resultsBodyEl.innerHTML =
-                    '<tr>' +
-                    '<td colspan="3" class="no-results">' +
-                    'لا توجد نتائج مطابقة' +
-                    '</td>' +
-                    '</tr>';
-
+                    '<tr><td colspan="3" class="no-results">لم نجد نتائج. جرّب كلمة أقصر أو غيّر المستودع.</td></tr>';
+                loadMoreBtn.style.display = 'none';
                 return;
             }
 
-            results.forEach(row => {
-                const warehouse =
-                    (row[colMap.warehouse] || '').toString();
+            const shown = Math.min(displayedCount, total);
 
-                const itemName =
-                    (row[colMap.item] || '').toString();
+            resultCountEl.textContent =
+                `عرض ${shown.toLocaleString('en-US')} من أصل ${total.toLocaleString('en-US')} نتيجة`;
 
-                const qtyRaw = row[colMap.qty];
-                const qty = formatQty(qtyRaw);
+            const toShow = results.slice(0, displayedCount);
+
+            const fragment = document.createDocumentFragment();
+
+            toShow.forEach(row => {
+                const warehouse = (row[colMap.warehouse] || '').toString();
+                const itemName = (row[colMap.item] || '').toString();
+                const qty = formatQty(row[colMap.qty]);
 
                 const tr = document.createElement('tr');
-
-                tr.style.backgroundColor =
-                    getColorForWarehouse(warehouse);
+                tr.style.backgroundColor = getColorForWarehouse(warehouse);
 
                 tr.innerHTML = `
-                    <td>${escapeHtml(warehouse)}</td>
-                    <td>${escapeHtml(qty)}</td>
-                    <td>${highlightWords(itemName, words)}</td>
+                    <td data-label="المستودع">${escapeHtml(warehouse)}</td>
+                    <td data-label="العدد">${escapeHtml(qty)}</td>
+                    <td data-label="الصنف">${highlightWords(itemName, words)}</td>
                 `;
 
-                resultsBodyEl.appendChild(tr);
+                fragment.appendChild(tr);
             });
+
+            resultsBodyEl.appendChild(fragment);
+
+            if (total > displayedCount) {
+                loadMoreBtn.style.display = 'inline-flex';
+                loadMoreBtn.textContent =
+                    `⬇️ عرض المزيد (${shown.toLocaleString('en-US')} من ${total.toLocaleString('en-US')})`;
+            } else {
+                loadMoreBtn.style.display = 'none';
+            }
         }
 
         function exportResults() {
-            const {
-                results
-            } = getFilteredResults();
-
-            if (!results.length) {
+            if (!lastResults.length) {
                 return;
             }
 
-            const rows = [
-                ['المستودع', 'العدد', 'الصنف']
-            ];
+            const rows = [['المستودع', 'العدد', 'الصنف']];
 
-            results.forEach(row => {
+            lastResults.forEach(row => {
                 rows.push([
                     (row[colMap.warehouse] || '').toString(),
                     row[colMap.qty] || '',
@@ -833,96 +1251,306 @@
                 ]);
             });
 
-            const worksheet =
-                XLSX.utils.aoa_to_sheet(rows);
+            const worksheet = XLSX.utils.aoa_to_sheet(rows);
+            const workbook = XLSX.utils.book_new();
 
-            const workbook =
-                XLSX.utils.book_new();
-
-            XLSX.utils.book_append_sheet(
-                workbook,
-                worksheet,
-                'نتائج البحث'
-            );
-
-            XLSX.writeFile(
-                workbook,
-                'نتائج_البحث.xlsx'
-            );
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'نتائج البحث');
+            XLSX.writeFile(workbook, 'نتائج_البحث.xlsx');
         }
 
-        /*
-            أحداث البحث
-        */
+        function showTempMessage(button, message) {
+            const original = button.dataset.originalText || button.textContent;
+            button.dataset.originalText = original;
+            button.textContent = message;
+
+            setTimeout(() => {
+                button.textContent = original;
+            }, 1500);
+        }
+
+        function copyResults() {
+            if (!lastResults.length) {
+                return;
+            }
+
+            const text = lastResults
+                .map(row => {
+                    const warehouse = (row[colMap.warehouse] || '').toString();
+                    const qty = formatQty(row[colMap.qty]);
+                    const item = (row[colMap.item] || '').toString();
+                    return `المستودع: ${warehouse}\nالعدد: ${qty}\nالصنف: ${item}`;
+                })
+                .join('\n\n');
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text)
+                    .then(() => showTempMessage(copyBtn, '✅ تم النسخ'))
+                    .catch(() => showTempMessage(copyBtn, '❌ تعذر النسخ'));
+            } else {
+                showTempMessage(copyBtn, '❌ غير مدعوم');
+            }
+        }
+
+        function printResults() {
+            if (!lastResults.length) {
+                return;
+            }
+
+            const savedCount = displayedCount;
+            displayedCount = lastResults.length; // عرض كل النتائج المفلترة مؤقتًا للطباعة
+            search();
+
+            function restore() {
+                displayedCount = savedCount;
+                search();
+                window.removeEventListener('afterprint', restore);
+            }
+
+            window.addEventListener('afterprint', restore);
+            window.print();
+        }
+
+        /* =========================================================
+           الاقتراحات أثناء الكتابة (Autocomplete)
+           ========================================================= */
+        function toggleInlineClearBtn() {
+            inlineClearBtn.style.display = searchAllEl.value ? 'flex' : 'none';
+        }
+
+        function hideAutocomplete() {
+            autocompleteEl.style.display = 'none';
+            autocompleteEl.innerHTML = '';
+            autocompleteVisible = false;
+            searchAllEl.setAttribute('aria-expanded', 'false');
+        }
+
+        function renderAutocomplete(list) {
+            if (!list.length) {
+                hideAutocomplete();
+                return;
+            }
+
+            autocompleteEl.innerHTML = list
+                .map(name => `<li role="option" tabindex="-1">${escapeHtml(name)}</li>`)
+                .join('');
+
+            autocompleteEl.style.display = 'block';
+            autocompleteVisible = true;
+            searchAllEl.setAttribute('aria-expanded', 'true');
+        }
+
+        function updateAutocomplete() {
+            const raw = searchAllEl.value.trim();
+
+            if (!raw || itemNamesList.length === 0) {
+                hideAutocomplete();
+                return;
+            }
+
+            const norm = normalizeArabic(raw);
+            const words = norm.split(' ').filter(Boolean);
+            const matches = [];
+
+            for (let i = 0; i < itemNamesList.length && matches.length < 8; i++) {
+                const entry = itemNamesList[i];
+
+                if (words.every(w => entry.norm.includes(w))) {
+                    matches.push(entry.raw);
+                }
+            }
+
+            renderAutocomplete(matches);
+        }
+
+        /* =========================================================
+           سجل عمليات البحث (آخر 5 عمليات)
+           ========================================================= */
+        function loadHistory() {
+            try {
+                searchHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+
+                if (!Array.isArray(searchHistory)) {
+                    searchHistory = [];
+                }
+            } catch (error) {
+                searchHistory = [];
+            }
+
+            renderHistory();
+        }
+
+        function saveSearchToHistory(term) {
+            const trimmed = (term || '').trim();
+
+            if (!trimmed) {
+                return;
+            }
+
+            searchHistory = searchHistory.filter(t => t !== trimmed);
+            searchHistory.unshift(trimmed);
+            searchHistory = searchHistory.slice(0, 5);
+
+            try {
+                localStorage.setItem(HISTORY_KEY, JSON.stringify(searchHistory));
+            } catch (error) {
+                // تجاهل أخطاء التخزين
+            }
+
+            renderHistory();
+        }
+
+        function renderHistory() {
+            if (!searchHistory.length) {
+                historyRowEl.style.display = 'none';
+                return;
+            }
+
+            historyRowEl.style.display = 'flex';
+            historyRowEl.innerHTML =
+                '<span class="history-label">عمليات بحث سابقة:</span>' +
+                searchHistory
+                    .map(term => `<button type="button" class="history-chip">${escapeHtml(term)}</button>`)
+                    .join('');
+        }
+
+        /* =========================================================
+           ربط الأحداث
+           ========================================================= */
         searchAllEl.addEventListener('input', () => {
             saveQuery();
-            search();
+            toggleInlineClearBtn();
+
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(() => {
+                resetDisplayCount();
+                updateAutocomplete();
+                search();
+            }, SEARCH_DEBOUNCE_MS);
         });
 
-        warehouseEl.addEventListener('input', () => {
+        searchAllEl.addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                clearTimeout(searchDebounceTimer);
+                resetDisplayCount();
+                hideAutocomplete();
+                search();
+                saveSearchToHistory(searchAllEl.value);
+            } else if (event.key === 'Escape') {
+                if (autocompleteVisible) {
+                    hideAutocomplete();
+                } else {
+                    clearQuery();
+                }
+            }
+        });
+
+        inlineClearBtn.addEventListener('click', () => {
+            searchAllEl.value = '';
+            toggleInlineClearBtn();
             saveQuery();
+            hideAutocomplete();
+            resetDisplayCount();
+            search();
+            searchAllEl.focus();
+        });
+
+        autocompleteEl.addEventListener('click', event => {
+            const li = event.target.closest('li');
+
+            if (!li) {
+                return;
+            }
+
+            searchAllEl.value = li.textContent;
+            toggleInlineClearBtn();
+            saveQuery();
+            hideAutocomplete();
+            resetDisplayCount();
+            search();
+            saveSearchToHistory(searchAllEl.value);
+            searchAllEl.focus();
+        });
+
+        document.addEventListener('click', event => {
+            if (!autocompleteEl.contains(event.target) && event.target !== searchAllEl) {
+                hideAutocomplete();
+            }
+        });
+
+        warehouseSelectEl.addEventListener('change', () => {
+            saveQuery();
+            resetDisplayCount();
             search();
         });
 
-        clearBtn.addEventListener(
-            'click',
-            clearQuery
-        );
+        historyRowEl.addEventListener('click', event => {
+            const chip = event.target.closest('.history-chip');
 
-        exportBtn.addEventListener(
-            'click',
-            exportResults
-        );
+            if (!chip) {
+                return;
+            }
+
+            searchAllEl.value = chip.textContent;
+            toggleInlineClearBtn();
+            saveQuery();
+            hideAutocomplete();
+            resetDisplayCount();
+            search();
+        });
+
+        clearBtn.addEventListener('click', clearQuery);
+        exportBtn.addEventListener('click', exportResults);
+        copyBtn.addEventListener('click', copyResults);
+        printBtn.addEventListener('click', printResults);
+
+        loadMoreBtn.addEventListener('click', () => {
+            displayedCount += DISPLAY_STEP;
+            search();
+        });
+
+        refreshBtn.addEventListener('click', loadExcel);
 
         /*
-            زر التحديث:
-            تحميل ملف Excel من جديد بدون تحديث الصفحة.
+            ترتيب الأعمدة (بالنقر أو بلوحة المفاتيح)
         */
-        refreshBtn.addEventListener(
-            'click',
-            loadExcel
-        );
+        document.querySelectorAll('#results th').forEach(th => {
+            th.setAttribute('aria-label', 'ترتيب حسب ' + th.textContent.trim());
 
-        /*
-            ترتيب الأعمدة
-        */
-        document
-            .querySelectorAll('#results th')
-            .forEach(th => {
-                th.addEventListener('click', () => {
-                    const col =
-                        th.getAttribute('data-col');
+            function triggerSort() {
+                const col = th.getAttribute('data-col');
 
-                    if (currentSort.col === col) {
-                        currentSort.dir *= -1;
-                    } else {
-                        currentSort.col = col;
-                        currentSort.dir = 1;
-                    }
+                if (currentSort.col === col) {
+                    currentSort.dir *= -1;
+                } else {
+                    currentSort.col = col;
+                    currentSort.dir = 1;
+                }
 
-                    document
-                        .querySelectorAll('#results th .arrow')
-                        .forEach(arrow => {
-                            arrow.textContent = '';
-                        });
-
-                    th.querySelector('.arrow').textContent =
-                        currentSort.dir === 1
-                            ? '▲'
-                            : '▼';
-
-                    search();
+                document.querySelectorAll('#results th .arrow').forEach(arrow => {
+                    arrow.textContent = '';
                 });
+
+                th.querySelector('.arrow').textContent = currentSort.dir === 1 ? '▲' : '▼';
+
+                search();
+            }
+
+            th.addEventListener('click', triggerSort);
+
+            th.addEventListener('keydown', event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    triggerSort();
+                }
             });
+        });
 
         /*
-            استرجاع البحث السابق مرة واحدة
+            استرجاع البحث والسجل، ثم التحميل الأول للبيانات
         */
         restoreLastQuery();
-
-        /*
-            التحميل الأول للبيانات
-        */
+        toggleInlineClearBtn();
+        loadHistory();
         loadExcel();
     </script>
 
